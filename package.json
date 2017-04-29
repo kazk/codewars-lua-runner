@@ -1,0 +1,19 @@
+{
+  "name": "@kazk/codewars-lua-runner",
+  "description": "Codewars Lua runner",
+  "version": "0.1.0",
+  "repository": "kazk/codewars-lua-runner",
+  "main": "lib/index.js",
+  "license": "AGPL-3.0",
+  "scripts": {
+    "make": "docker build -t cw/lua-runner ."
+  },
+  "dependencies": {
+    "@kazk/codewars-runner": "kazk/codewars-runner#0.1.3"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "js-yaml": "^3.8.3",
+    "mocha": "^3.3.0"
+  }
+}
