@@ -11,9 +11,11 @@ const docker = new Docker();
 describe('lua runner', function() {
   it('should handle basic code evaluation', function(done) {
     run({
+      format: 'json',
       code: 'print(42)'
     }).then(function(buffer) {
       expect(buffer.stdout).to.equal('42\n');
+      expect(buffer.exitCode).to.equal(0);
       showBuffer(buffer);
       done();
     });
@@ -23,6 +25,7 @@ describe('lua runner', function() {
 describe('busted', function() {
   it('should handle basic code assertion', function(done) {
     run({
+      format: 'json',
       solution: `
 local kata = {}
 function kata.add(a, b)
@@ -48,6 +51,7 @@ end)
 
   it('should handle basic code assertion failure', function(done) {
     run({
+      format: 'json',
       solution: `
 local kata = {}
 function kata.add(a, b)
@@ -72,6 +76,7 @@ end)
 
   it('should handle mixed success and failure', function(done) {
     run({
+      format: 'json',
       solution: `
 local kata = {}
 function kata.add(a, b)
@@ -100,6 +105,7 @@ end)
 
   it('should handle error', function(done) {
     run({
+      format: 'json',
       solution: `
 local kata = {}
 function kata.add(a, b)
@@ -126,6 +132,7 @@ end)
 
   it('should output nested describes', function(done) {
     run({
+      format: 'json',
       solution: `
 local kata = {}
 function kata.add(a, b)
@@ -184,6 +191,7 @@ end)
 
   it('should allow solution to log', function(done) {
     run({
+      format: 'json',
       solution: `
 local kata = {}
 function kata.add(a, b)
@@ -226,6 +234,7 @@ describe('Example Challenges', function() {
 
     it('should have a passing ' + name + ' example', function(done) {
       run({
+        format: 'json',
         testFramework: 'busted',
         setup: example.setup,
         code: example.answer,
@@ -243,11 +252,10 @@ describe('Example Challenges', function() {
 
 function run(opts) {
   const out = memoryStream.createWriteStream();
-  const err = memoryStream.createWriteStream();
-  return docker.run('cw/lua-runner', ['run-json', JSON.stringify(opts)], [out, err], {Tty: false})
+  return docker.run('cw/lua-runner', ['run-json', JSON.stringify(opts)], out)
   .then(function(container) {
     container.remove();
-    return {stdout: out.toString(), stderr: err.toString()};
+    return JSON.parse(out.toString());
   })
   .catch(function(err) {
     console.log(err);
@@ -256,12 +264,14 @@ function run(opts) {
 
 function showBuffer(buffer) {
   if (buffer.stdout != '') {
-    console.log('-'.repeat(65) + ' STDOUT');
-    console.log(buffer.stdout);
+    process.stdout.write('-'.repeat(32) + ' STDOUT ' + '-'.repeat(32) + '\n');
+    process.stdout.write(buffer.stdout);
+    process.stdout.write('-'.repeat(72) + '\n');
   }
 
   if (buffer.stderr != '') {
-    console.log('-'.repeat(65) + ' STDERR');
-    console.log(buffer.stderr);
+    process.stdout.write('-'.repeat(32) + ' STDERR ' + '-'.repeat(32) + '\n');
+    process.stdout.write(buffer.stderr);
+    process.stdout.write('-'.repeat(72) + '\n');
   }
 }
