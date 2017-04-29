@@ -1,11 +1,14 @@
 {
   "name": "@kazk/codewars-lua-runner",
   "description": "Codewars Lua runner",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "repository": "kazk/codewars-lua-runner",
   "main": "lib/index.js",
   "license": "AGPL-3.0",
   "scripts": {
+    "eslint": "eslint '**/*.js'",
+    "pretest": "docker build -t cw/lua-runner .",
+    "test": "mocha -t 5s",
     "make": "docker build -t cw/lua-runner ."
   },
   "dependencies": {
@@ -13,7 +16,10 @@
   },
   "devDependencies": {
     "chai": "^3.5.0",
+    "dockerode": "^2.4.3",
+    "eslint": "^3.19.0",
     "js-yaml": "^3.8.3",
+    "memorystream": "^0.3.1",
     "mocha": "^3.3.0"
   }
 }

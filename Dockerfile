@@ -17,19 +17,15 @@ WORKDIR /runner
 ENV NPM_CONFIG_LOGLEVEL=warn
 COPY package.json /runner/package.json
 RUN npm install --only=prod
-RUN npm install --only=dev # TODO
 
 COPY lib /runner/lib
-COPY test /runner/test
+COPY docker/run-json.js /runner/run-json.js
 
 # files inside /home/codewarrior will be removed in NODE_ENV=test
 COPY docker/lua /runner/lua
 
 USER codewarrior
 ENV USER=codewarrior HOME=/home/codewarrior
-
-# Use global mocha for now. local one exits after first test for some reason.
-RUN NODE_ENV=test mocha -t 5s
 
 # timeout is a fallback in case an error with node
 # prevents it from exiting properly

@@ -1,17 +1,21 @@
 "use strict";
 
+const fs = require('fs');
+
 const expect = require('chai').expect;
-const run = require('../');
+const yaml = require('js-yaml');
+const memoryStream = require('memorystream');
+const Docker = require('dockerode');
+const docker = new Docker();
 
 describe('lua runner', function() {
-  describe('.run', function() {
-    it('should handle basic code evaluation', function(done) {
-      run({
-        code: 'print(42)'
-      }, function(buffer) {
-        expect(buffer.stdout).to.equal('42\n');
-        done();
-      });
+  it('should handle basic code evaluation', function(done) {
+    run({
+      code: 'print(42)'
+    }).then(function(buffer) {
+      expect(buffer.stdout).to.equal('42\n');
+      showBuffer(buffer);
+      done();
     });
   });
 });
@@ -34,8 +38,10 @@ describe("add", function()
   end)
 end)
 `
-    }, function(buffer) {
+    }).then(function(buffer) {
       expect(buffer.stdout).to.contain('<PASSED::>');
+      expect(buffer.stderr).to.equal('');
+      showBuffer(buffer);
       done();
     });
   });
@@ -57,8 +63,9 @@ describe("add", function()
   end)
 end)
 `
-    }, function(buffer) {
+    }).then(function(buffer) {
       expect(buffer.stdout).to.contain('<FAILED::>');
+      showBuffer(buffer);
       done();
     });
   });
@@ -83,9 +90,10 @@ describe("add", function()
   end)
 end)
 `
-    }, function(buffer) {
+    }).then(function(buffer) {
       expect(buffer.stdout).to.contain('<PASSED::>');
       expect(buffer.stdout).to.contain('<FAILED::>');
+      showBuffer(buffer);
       done();
     });
   });
@@ -108,9 +116,10 @@ describe("add", function()
   end)
 end)
 `
-    }, function(buffer) {
+    }).then(function(buffer) {
       expect(buffer.stdout).to.contain('<ERROR::>');
       expect(buffer.stdout).to.contain('./solution.lua:4: Error');
+      showBuffer(buffer);
       done();
     });
   });
@@ -156,7 +165,7 @@ describe("Busted unit testing framework", function()
   end)
 end)
 `
-    }, function(buffer) {
+    }).then(function(buffer) {
       const nested = [
         '<DESCRIBE::>',
         '  <DESCRIBE::>',
@@ -168,6 +177,7 @@ end)
         '<COMPLETEDIN::>'
       ].join('').replace(/\s/g, '');
       expect(buffer.stdout.match(/<(?:DESCRIBE|IT|PASSED|COMPLETEDIN)::>/g).join('')).to.equal(nested);
+      showBuffer(buffer);
       done();
     });
   });
@@ -193,11 +203,65 @@ describe("add", function()
   end)
 end)
 `
-    }, function(buffer) {
+    }).then(function(buffer) {
       expect(buffer.stdout).to.contain('<PASSED::>');
       expect(buffer.stdout).to.contain('1');
       expect(buffer.stdout).to.contain('2');
+      showBuffer(buffer);
       done();
     });
   });
 });
+
+
+describe('Example Challenges', function() {
+  const examples = yaml.safeLoad(fs.readFileSync(__dirname + '/fixtures/busted_examples.yml', 'utf8'));
+  if (!examples) return;
+
+  for (const name of Object.keys(examples)) {
+    const example = examples[name];
+    it('should define an initial code block', function() {
+      expect(example.initial).to.be.a('string');
+    });
+
+    it('should have a passing ' + name + ' example', function(done) {
+      run({
+        testFramework: 'busted',
+        setup: example.setup,
+        code: example.answer,
+        fixture: example.fixture,
+      }).then(function(buffer) {
+        expect(buffer.stdout).to.not.contain('<FAILED::>');
+        expect(buffer.stdout).to.not.contain('<ERROR::>');
+        showBuffer(buffer);
+        done();
+      });
+    });
+  }
+});
+
+
+function run(opts) {
+  const out = memoryStream.createWriteStream();
+  const err = memoryStream.createWriteStream();
+  return docker.run('cw/lua-runner', ['run-json', JSON.stringify(opts)], [out, err], {Tty: false})
+  .then(function(container) {
+    container.remove();
+    return {stdout: out.toString(), stderr: err.toString()};
+  })
+  .catch(function(err) {
+    console.log(err);
+  });
+}
+
+function showBuffer(buffer) {
+  if (buffer.stdout != '') {
+    console.log('-'.repeat(65) + ' STDOUT');
+    console.log(buffer.stdout);
+  }
+
+  if (buffer.stderr != '') {
+    console.log('-'.repeat(65) + ' STDERR');
+    console.log(buffer.stderr);
+  }
+}
