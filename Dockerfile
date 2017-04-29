@@ -22,8 +22,8 @@ RUN npm install --only=dev # TODO
 COPY lib /runner/lib
 COPY test /runner/test
 
-COPY docker/lua /home/codewarrior/lua
-RUN chown -R codewarrior:codewarrior /home/codewarrior/lua
+# files inside /home/codewarrior will be removed in NODE_ENV=test
+COPY docker/lua /runner/lua
 
 USER codewarrior
 ENV USER=codewarrior HOME=/home/codewarrior
