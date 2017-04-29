@@ -5,7 +5,7 @@ node_js:
   - "7"
 
 install:
-  - npm install -g eslint
+  - npm install --only=dev
 
 services:
   - docker
@@ -15,5 +15,5 @@ after_success:
   - docker images -a
 
 script:
-  - eslint '**/*.js'
-  - npm run make
+  - npm run eslint
+  - npm run test

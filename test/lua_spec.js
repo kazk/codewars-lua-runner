@@ -1,17 +1,23 @@
 "use strict";
 
+const fs = require('fs');
+
 const expect = require('chai').expect;
-const run = require('../');
+const yaml = require('js-yaml');
+const memoryStream = require('memorystream');
+const Docker = require('dockerode');
+const docker = new Docker();
 
 describe('lua runner', function() {
-  describe('.run', function() {
-    it('should handle basic code evaluation', function(done) {
-      run({
-        code: 'print(42)'
-      }, function(buffer) {
-        expect(buffer.stdout).to.equal('42\n');
-        done();
-      });
+  it('should handle basic code evaluation', function(done) {
+    run({
+      format: 'json',
+      code: 'print(42)'
+    }).then(function(buffer) {
+      expect(buffer.stdout).to.equal('42\n');
+      expect(buffer.exitCode).to.equal(0);
+      showBuffer(buffer);
+      done();
     });
   });
 });
@@ -19,6 +25,7 @@ describe('lua runner', function() {
 describe('busted', function() {
   it('should handle basic code assertion', function(done) {
     run({
+      format: 'json',
       solution: `
 local kata = {}
 function kata.add(a, b)
@@ -34,14 +41,17 @@ describe("add", function()
   end)
 end)
 `
-    }, function(buffer) {
+    }).then(function(buffer) {
       expect(buffer.stdout).to.contain('<PASSED::>');
+      expect(buffer.stderr).to.equal('');
+      showBuffer(buffer);
       done();
     });
   });
 
   it('should handle basic code assertion failure', function(done) {
     run({
+      format: 'json',
       solution: `
 local kata = {}
 function kata.add(a, b)
@@ -57,14 +67,16 @@ describe("add", function()
   end)
 end)
 `
-    }, function(buffer) {
+    }).then(function(buffer) {
       expect(buffer.stdout).to.contain('<FAILED::>');
+      showBuffer(buffer);
       done();
     });
   });
 
   it('should handle mixed success and failure', function(done) {
     run({
+      format: 'json',
       solution: `
 local kata = {}
 function kata.add(a, b)
@@ -83,15 +95,17 @@ describe("add", function()
   end)
 end)
 `
-    }, function(buffer) {
+    }).then(function(buffer) {
       expect(buffer.stdout).to.contain('<PASSED::>');
       expect(buffer.stdout).to.contain('<FAILED::>');
+      showBuffer(buffer);
       done();
     });
   });
 
   it('should handle error', function(done) {
     run({
+      format: 'json',
       solution: `
 local kata = {}
 function kata.add(a, b)
@@ -108,15 +122,17 @@ describe("add", function()
   end)
 end)
 `
-    }, function(buffer) {
+    }).then(function(buffer) {
       expect(buffer.stdout).to.contain('<ERROR::>');
       expect(buffer.stdout).to.contain('./solution.lua:4: Error');
+      showBuffer(buffer);
       done();
     });
   });
 
   it('should output nested describes', function(done) {
     run({
+      format: 'json',
       solution: `
 local kata = {}
 function kata.add(a, b)
@@ -156,7 +172,7 @@ describe("Busted unit testing framework", function()
   end)
 end)
 `
-    }, function(buffer) {
+    }).then(function(buffer) {
       const nested = [
         '<DESCRIBE::>',
         '  <DESCRIBE::>',
@@ -168,12 +184,14 @@ end)
         '<COMPLETEDIN::>'
       ].join('').replace(/\s/g, '');
       expect(buffer.stdout.match(/<(?:DESCRIBE|IT|PASSED|COMPLETEDIN)::>/g).join('')).to.equal(nested);
+      showBuffer(buffer);
       done();
     });
   });
 
   it('should allow solution to log', function(done) {
     run({
+      format: 'json',
       solution: `
 local kata = {}
 function kata.add(a, b)
@@ -193,11 +211,67 @@ describe("add", function()
   end)
 end)
 `
-    }, function(buffer) {
+    }).then(function(buffer) {
       expect(buffer.stdout).to.contain('<PASSED::>');
       expect(buffer.stdout).to.contain('1');
       expect(buffer.stdout).to.contain('2');
+      showBuffer(buffer);
       done();
     });
   });
 });
+
+
+describe('Example Challenges', function() {
+  const examples = yaml.safeLoad(fs.readFileSync(__dirname + '/fixtures/busted_examples.yml', 'utf8'));
+  if (!examples) return;
+
+  for (const name of Object.keys(examples)) {
+    const example = examples[name];
+    it('should define an initial code block', function() {
+      expect(example.initial).to.be.a('string');
+    });
+
+    it('should have a passing ' + name + ' example', function(done) {
+      run({
+        format: 'json',
+        testFramework: 'busted',
+        setup: example.setup,
+        code: example.answer,
+        fixture: example.fixture,
+      }).then(function(buffer) {
+        expect(buffer.stdout).to.not.contain('<FAILED::>');
+        expect(buffer.stdout).to.not.contain('<ERROR::>');
+        showBuffer(buffer);
+        done();
+      });
+    });
+  }
+});
+
+
+function run(opts) {
+  const out = memoryStream.createWriteStream();
+  return docker.run('cw/lua-runner', ['run-json', JSON.stringify(opts)], out)
+  .then(function(container) {
+    container.remove();
+    return JSON.parse(out.toString());
+  })
+  .catch(function(err) {
+    console.log(err);
+  });
+}
+
+function showBuffer(buffer) {
+  if (buffer.stdout != '') {
+    process.stdout.write('-'.repeat(32) + ' STDOUT ' + '-'.repeat(32) + '\n');
+    process.stdout.write(buffer.stdout);
+    process.stdout.write('-'.repeat(72) + '\n');
+  }
+
+  if (buffer.stderr != '') {
+    process.stdout.write('-'.repeat(32) + ' STDERR ' + '-'.repeat(32) + '\n');
+    process.stdout.write(buffer.stderr);
+    process.stdout.write('-'.repeat(72) + '\n');
+  }
+}
