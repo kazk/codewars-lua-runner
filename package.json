@@ -8,8 +8,7 @@
   "scripts": {
     "eslint": "eslint '**/*.js'",
     "pretest": "docker build -t cw/lua-runner .",
-    "test": "mocha -t 5s",
-    "make": "docker build -t cw/lua-runner ."
+    "test": "mocha -t 5s"
   },
   "dependencies": {
     "@kazk/codewars-runner": "kazk/codewars-runner#0.1.3"
@@ -19,7 +18,7 @@
     "dockerode": "^2.4.3",
     "eslint": "^3.19.0",
     "js-yaml": "^3.8.3",
-    "memorystream": "^0.3.1",
+    "stream-buffers": "^3.0.1",
     "mocha": "^3.3.0"
   }
 }

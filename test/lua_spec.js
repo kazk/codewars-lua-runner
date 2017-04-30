@@ -4,7 +4,8 @@ const fs = require('fs');
 
 const expect = require('chai').expect;
 const yaml = require('js-yaml');
-const memoryStream = require('memorystream');
+const WritableStreamBuffer = require('stream-buffers').WritableStreamBuffer;
+
 const Docker = require('dockerode');
 const docker = new Docker();
 
@@ -251,11 +252,16 @@ describe('Example Challenges', function() {
 
 
 function run(opts) {
-  const out = memoryStream.createWriteStream();
+  // shovel.js: MAX_BUFFER=1500*1024, MAX_DATA_BUFFER=50*1024
+  const out = new WritableStreamBuffer({
+    initialSize: 500 * 1024,
+    incrementAmount: 50 * 1024
+  });
   return docker.run('cw/lua-runner', ['run-json', JSON.stringify(opts)], out)
   .then(function(container) {
     container.remove();
-    return JSON.parse(out.toString());
+    out.end();
+    return JSON.parse(out.getContentsAsString('utf8'));
   })
   .catch(function(err) {
     console.log(err);
