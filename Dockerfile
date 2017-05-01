@@ -1,28 +1,30 @@
-FROM codewars/base-runner
+FROM mhart/alpine-node:7.9
 
-# luarocks with lua 5.2 needs to be built from source
-RUN apt-get update && apt-get install -y lua5.2 liblua5.2-dev unzip
-RUN curl -fsSL https://github.com/luarocks/luarocks/archive/v2.4.2.tar.gz | tar xz -C /tmp \
-	&& cd /tmp/luarocks-2.4.2 \
-	&& ./configure --lua-version=5.2 \
-	&& make build \
-	&& make install \
-	&& cd /tmp \
-	&& rm -rf /tmp/luarocks-2.4.2
-
-RUN luarocks install busted
-
+RUN adduser -D codewarrior
 RUN ln -s /home/codewarrior /workspace
+
+RUN apk add --no-cache \
+    bash \
+    coreutils \
+    findutils \
+    git \
+ && apk add --no-cache \
+    --repository http://dl-cdn.alpinelinux.org/alpine/edge/community/ \
+    lua5.2 \
+    lua5.2-busted \
+ && ln -s /usr/bin/busted-5.2 /usr/bin/busted \
+ && ln -s /usr/bin/lua5.2 /usr/bin/lua
+
 WORKDIR /runner
 ENV NPM_CONFIG_LOGLEVEL=warn
 COPY package.json /runner/package.json
 RUN npm install --only=prod
 
 COPY lib /runner/lib
-COPY docker/run-json.js /runner/run-json.js
-
 # files inside /home/codewarrior will be removed in NODE_ENV=test
 COPY docker/lua /runner/lua
+
+COPY docker/run-json.js /runner/run-json.js
 
 USER codewarrior
 ENV USER=codewarrior HOME=/home/codewarrior

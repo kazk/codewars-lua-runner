@@ -257,7 +257,7 @@ function run(opts) {
     initialSize: 500 * 1024,
     incrementAmount: 50 * 1024
   });
-  return docker.run('cw/lua-runner', ['run-json', JSON.stringify(opts)], out)
+  return docker.run('kazk/codewars-lua-runner', ['run-json', JSON.stringify(opts)], out)
   .then(function(container) {
     container.remove();
     out.end();
